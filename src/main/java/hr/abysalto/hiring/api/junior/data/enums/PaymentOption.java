@@ -1,4 +1,4 @@
-package hr.abysalto.hiring.api.junior.model;
+package hr.abysalto.hiring.api.junior.data.enums;
 
 public enum PaymentOption {
 	CASH,
