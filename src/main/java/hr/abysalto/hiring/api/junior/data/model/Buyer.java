@@ -1,8 +1,12 @@
 package hr.abysalto.hiring.api.junior.data.model;
 
 import lombok.Data;
+
+import java.util.List;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.MappedCollection;
 import org.springframework.data.relational.core.mapping.Table;
 
 @Data
@@ -19,4 +23,7 @@ public class Buyer {
 
 	@Column("TITLE")
 	private String title;
+
+	@MappedCollection(idColumn = "BUYER_ID")
+	private List<BuyerAddress> addresses;
 }
