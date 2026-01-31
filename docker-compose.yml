@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  h2:
+    image: oscarfonts/h2:latest
+    container_name: restaurant-orders-db
+    environment:
+      H2_OPTIONS: -web -webPort 8082 -webAllowOthers -tcp -tcpPort 9092 -tcpAllowOthers -ifNotExists -baseDir /opt/h2-data    
+    ports:
+      - "${H2_WEB_PORT:-8082}:8082"
+      - "${H2_TCP_PORT:-9092}:9092"
+    volumes:
+      - h2_data:/opt/h2-data
+    networks:
+      - restaurant-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: restaurant-orders-app
+    environment:
+      DB_HOST: h2
+      DB_PORT: ${H2_TCP_PORT:-9092}
+      DB_NAME: ${DB_NAME:-restaurant_orders}
+      DB_USERNAME: ${DB_USERNAME:-sa}
+      DB_PASSWORD: ${DB_PASSWORD:-}
+    ports:
+      - "8080:8080"
+    depends_on:
+      h2:
+        condition: service_started
+    networks:
+      - restaurant-network
+    restart: unless-stopped
+
+volumes:
+  h2_data:
+
+networks:
+  restaurant-network:
+    driver: bridge
