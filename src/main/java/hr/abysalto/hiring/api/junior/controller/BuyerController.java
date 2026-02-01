@@ -1,82 +1,80 @@
 package hr.abysalto.hiring.api.junior.controller;
 
-import hr.abysalto.hiring.api.junior.components.DatabaseInitializer;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import hr.abysalto.hiring.api.junior.components.PatchUtils;
+import hr.abysalto.hiring.api.junior.components.mapper.BuyerMapper;
+import hr.abysalto.hiring.api.junior.data.dto.BuyerRequest;
 import hr.abysalto.hiring.api.junior.data.model.Buyer;
 import hr.abysalto.hiring.api.junior.service.BuyerService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.validation.Validator;
+import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "Buyers", description = "for handling buyers")
-@RequestMapping("buyer")
-@Controller
+@RestController
+@RequestMapping("/api/buyer")
+@AllArgsConstructor
 public class BuyerController {
 
-	@Autowired
-	private BuyerService buyerService;
-	@Autowired
-	private DatabaseInitializer databaseInitializer;
+	private final BuyerService buyerService;
+	private final ObjectMapper objectMapper;
+	private final PatchUtils patchUtils;
+	private final Validator validator;
 
-	@Operation(summary = "Get all buyers", responses = {
-			@ApiResponse(description = "Success", responseCode = "200", content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = Buyer.class)))),
-			@ApiResponse(description = "Precondition failed", responseCode = "412", content = @Content(mediaType = "text/plain", schema = @Schema(implementation = String.class))),
-			@ApiResponse(description = "Error", responseCode = "500", content = @Content(mediaType = "application/json")) })
-	@GetMapping("/list")
-	public ResponseEntity<?> list() {
-		if (!this.databaseInitializer.isDataInitialized()) {
-			return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).contentType(MediaType.TEXT_PLAIN).body("Data not initialized");
-		}
-		try {
-			return ResponseEntity.ok(this.buyerService.getAllBuyers());
-		} catch (Exception ex) {
-			return ResponseEntity.internalServerError().body(ex);
-		}
+	@GetMapping("/getAll")
+	public ResponseEntity<?> getBuyers(
+			@RequestParam(required = false) String firstName,
+			@RequestParam(required = false) String lastName,
+			@PageableDefault(sort = "id", direction = Sort.Direction.ASC) Pageable pageable
+	) {
+		Page<Buyer> page = buyerService.getAllBuyers(firstName, lastName, pageable);
+		return ResponseEntity.ok(page.getContent());
 	}
 
-	@GetMapping("/")
-	public String viewHomePage(Model model) {
-		model.addAttribute("buyerList", this.buyerService.getAllBuyers());
-		return "buyer/index";
+	@GetMapping("/get/{id}")
+	public ResponseEntity<?> getBuyerById(@PathVariable Long id) {
+		Buyer buyer = buyerService.getBuyerById(id);
+		return ResponseEntity.ok(BuyerMapper.toBuyerResponse(buyer));
 	}
 
-	@GetMapping("/addnew")
-	public String addNewEmployee(Model model) {
-		Buyer buyer = new Buyer();
-		model.addAttribute("buyer", buyer);
-		return "buyer/newbuyer";
+	@PostMapping("/create")
+	public ResponseEntity<?> createBuyer(@RequestBody BuyerRequest request) {
+		Buyer newBuyer = buyerService.createBuyer(request);
+		return ResponseEntity.status(HttpStatus.CREATED).body(newBuyer);
 	}
 
-	@PostMapping("/save")
-	public String saveBuyer(@ModelAttribute("buyer") Buyer buyer) {
-		this.buyerService.save(buyer);
-		return "redirect:/buyer/";
+	@PutMapping("/update/{id}")
+	public ResponseEntity<?> updateBuyer(@PathVariable Long id, @RequestBody BuyerRequest request) {
+		Buyer updatedBuyer = buyerService.updateBuyer(id, request);
+		return ResponseEntity.ok(BuyerMapper.toBuyerResponse(updatedBuyer));
 	}
 
-	@GetMapping("/showFormForUpdate/{id}")
-	public String updateForm(@PathVariable(value = "id") long id, Model model) {
-		Buyer buyer = this.buyerService.getById(id);
-		model.addAttribute("buyer", buyer);
-		return "buyer/updatebuyer";
+	@PatchMapping(path = "/patch/{id}", consumes = "application/merge-patch+json")
+	public ResponseEntity<?> patchBuyer(
+			@PathVariable Long id,
+			@RequestBody JsonNode patchNode
+	) throws JsonProcessingException, IllegalArgumentException {
+		Buyer existingBuyer = buyerService.getBuyerById(id);
+
+		JsonNode existingNode = objectMapper.valueToTree(existingBuyer);
+		JsonNode merged = patchUtils.merge(existingNode, patchNode);
+		BuyerRequest buyerPatch = objectMapper.treeToValue(merged, BuyerRequest.class);
+		validator.validate(buyerPatch);
+
+		Buyer savedBuyer = buyerService.patchBuyer(id, buyerPatch);
+		return ResponseEntity.ok(BuyerMapper.toBuyerResponse(savedBuyer));
 	}
 
-	@GetMapping("/deleteBuyer/{id}")
-	public String deleteById(@PathVariable(value = "id") long id) {
-		this.buyerService.deleteById(id);
-		return "redirect:/buyer/";
+	@DeleteMapping("/delete/{id}")
+	public ResponseEntity<?> deleteBuyer(@PathVariable Long id) {
+		buyerService.deleteBuyer(id);
+		return ResponseEntity.noContent().build();
 	}
-
 }

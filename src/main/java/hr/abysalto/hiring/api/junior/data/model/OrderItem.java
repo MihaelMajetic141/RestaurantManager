@@ -13,7 +13,6 @@ public class OrderItem {
 	@Id
 	private Long id;
 
-	
 	@Column("SNAPSHOT_PRICE")
 	private BigDecimal snapshotPrice;
 	
