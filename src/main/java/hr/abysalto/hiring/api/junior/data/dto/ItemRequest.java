@@ -9,9 +9,8 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrderItemRequest {
-	private Long orderId;
-	private Long itemId;
-	private Short quantity;
-	private BigDecimal snapshotPrice;
+public class ItemRequest {
+	private Short itemNumber;
+	private String name;
+	private BigDecimal price;
 }

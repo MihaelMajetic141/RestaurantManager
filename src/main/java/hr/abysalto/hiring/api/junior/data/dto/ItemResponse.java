@@ -3,15 +3,16 @@ package hr.abysalto.hiring.api.junior.data.dto;
 import java.math.BigDecimal;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrderItemRequest {
-	private Long orderId;
-	private Long itemId;
-	private Short quantity;
-	private BigDecimal snapshotPrice;
+@Builder
+public class ItemResponse {
+	private Short itemNumber;
+	private String name;
+	private BigDecimal price;
 }
