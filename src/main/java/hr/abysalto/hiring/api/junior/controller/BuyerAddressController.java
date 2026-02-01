@@ -8,6 +8,7 @@ import hr.abysalto.hiring.api.junior.components.mapper.BuyerAddressMapper;
 import hr.abysalto.hiring.api.junior.data.dto.BuyerAddressRequest;
 import hr.abysalto.hiring.api.junior.data.model.BuyerAddress;
 import hr.abysalto.hiring.api.junior.service.BuyerAddressService;
+import jakarta.validation.Valid;
 import jakarta.validation.Validator;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -46,13 +47,13 @@ public class BuyerAddressController {
 	}
 
 	@PostMapping("/create")
-	public ResponseEntity<?> createBuyerAddress(@RequestBody BuyerAddressRequest request) {
+	public ResponseEntity<?> createBuyerAddress(@Valid @RequestBody BuyerAddressRequest request) {
 		BuyerAddress newAddress = buyerAddressService.createBuyerAddress(request);
 		return ResponseEntity.status(HttpStatus.CREATED).body(newAddress);
 	}
 
 	@PutMapping("/update/{id}")
-	public ResponseEntity<?> updateBuyerAddress(@PathVariable Long id, @RequestBody BuyerAddressRequest request) {
+	public ResponseEntity<?> updateBuyerAddress(@PathVariable Long id, @Valid @RequestBody BuyerAddressRequest request) {
 		BuyerAddress updatedAddress = buyerAddressService.updateBuyerAddress(id, request);
 		return ResponseEntity.ok(BuyerAddressMapper.toBuyerAddressResponse(updatedAddress));
 	}

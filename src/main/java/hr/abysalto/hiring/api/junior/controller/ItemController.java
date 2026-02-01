@@ -8,6 +8,7 @@ import hr.abysalto.hiring.api.junior.components.mapper.ItemMapper;
 import hr.abysalto.hiring.api.junior.data.dto.ItemRequest;
 import hr.abysalto.hiring.api.junior.data.model.Item;
 import hr.abysalto.hiring.api.junior.service.ItemService;
+import jakarta.validation.Valid;
 import jakarta.validation.Validator;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -49,13 +50,13 @@ public class ItemController {
 	}
 
 	@PostMapping("/create")
-	public ResponseEntity<?> createItem(@RequestBody ItemRequest request) {
+	public ResponseEntity<?> createItem(@Valid @RequestBody ItemRequest request) {
 		Item newItem = itemService.createItem(request);
 		return ResponseEntity.status(HttpStatus.CREATED).body(newItem);
 	}
 
 	@PutMapping("/update/{id}")
-	public ResponseEntity<?> updateItem(@PathVariable Long id, @RequestBody ItemRequest request) {
+	public ResponseEntity<?> updateItem(@PathVariable Long id, @Valid @RequestBody ItemRequest request) {
 		Item updatedItem = itemService.updateItem(id, request);
 		return ResponseEntity.ok(ItemMapper.toItemResponse(updatedItem));
 	}

@@ -8,6 +8,7 @@ import hr.abysalto.hiring.api.junior.components.mapper.OrderItemMapper;
 import hr.abysalto.hiring.api.junior.data.dto.OrderItemRequest;
 import hr.abysalto.hiring.api.junior.data.model.OrderItem;
 import hr.abysalto.hiring.api.junior.service.OrderItemService;
+import jakarta.validation.Valid;
 import jakarta.validation.Validator;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -45,13 +46,13 @@ public class OrderItemController {
 	}
 
 	@PostMapping("/create")
-	public ResponseEntity<?> createOrderItem(@RequestBody OrderItemRequest request) {
+	public ResponseEntity<?> createOrderItem(@Valid @RequestBody OrderItemRequest request) {
 		OrderItem newOrderItem = orderItemService.createOrderItem(request);
 		return ResponseEntity.status(HttpStatus.CREATED).body(newOrderItem);
 	}
 
 	@PutMapping("/update/{id}")
-	public ResponseEntity<?> updateOrderItem(@PathVariable Long id, @RequestBody OrderItemRequest request) {
+	public ResponseEntity<?> updateOrderItem(@PathVariable Long id, @Valid @RequestBody OrderItemRequest request) {
 		OrderItem updatedOrderItem = orderItemService.updateOrderItem(id, request);
 		return ResponseEntity.ok(OrderItemMapper.toOrderItemResponse(updatedOrderItem));
 	}

@@ -8,6 +8,7 @@ import hr.abysalto.hiring.api.junior.components.mapper.BuyerMapper;
 import hr.abysalto.hiring.api.junior.data.dto.BuyerRequest;
 import hr.abysalto.hiring.api.junior.data.model.Buyer;
 import hr.abysalto.hiring.api.junior.service.BuyerService;
+import jakarta.validation.Valid;
 import jakarta.validation.Validator;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -45,13 +46,13 @@ public class BuyerController {
 	}
 
 	@PostMapping("/create")
-	public ResponseEntity<?> createBuyer(@RequestBody BuyerRequest request) {
+	public ResponseEntity<?> createBuyer(@Valid @RequestBody BuyerRequest request) {
 		Buyer newBuyer = buyerService.createBuyer(request);
 		return ResponseEntity.status(HttpStatus.CREATED).body(newBuyer);
 	}
 
 	@PutMapping("/update/{id}")
-	public ResponseEntity<?> updateBuyer(@PathVariable Long id, @RequestBody BuyerRequest request) {
+	public ResponseEntity<?> updateBuyer(@PathVariable Long id, @Valid @RequestBody BuyerRequest request) {
 		Buyer updatedBuyer = buyerService.updateBuyer(id, request);
 		return ResponseEntity.ok(BuyerMapper.toBuyerResponse(updatedBuyer));
 	}

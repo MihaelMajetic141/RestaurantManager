@@ -6,6 +6,7 @@ import hr.abysalto.hiring.api.junior.components.mapper.OrderMapper;
 import hr.abysalto.hiring.api.junior.data.dto.OrderRequest;
 import hr.abysalto.hiring.api.junior.data.model.Order;
 import hr.abysalto.hiring.api.junior.service.OrderService;
+import jakarta.validation.Valid;
 import jakarta.validation.Validator;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -54,7 +55,7 @@ public class OrderController {
 
     @PostMapping("/create")
     public ResponseEntity<?> createOrder(
-        @RequestBody OrderRequest order
+        @Valid @RequestBody OrderRequest order
     ) {
         Order newOrder = orderService.createOrder(order);
         // messagingTemplate.convertAndSend("/topic/orders", newOrder);
@@ -62,7 +63,7 @@ public class OrderController {
     }
 
     @PutMapping("/update/{id}")
-    public ResponseEntity<?> updateOrder(@PathVariable Long id, @RequestBody OrderRequest order) {
+    public ResponseEntity<?> updateOrder(@PathVariable Long id, @Valid @RequestBody OrderRequest order) {
         Order updatedOrder = orderService.updateOrder(id, order);
         // messagingTemplate.convertAndSend("/topic/orders", updatedOrder);
         return ResponseEntity.ok(OrderMapper.toOrderResponse(updatedOrder));
