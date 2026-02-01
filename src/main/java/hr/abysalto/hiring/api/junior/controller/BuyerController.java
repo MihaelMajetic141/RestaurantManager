@@ -2,7 +2,7 @@ package hr.abysalto.hiring.api.junior.controller;
 
 import hr.abysalto.hiring.api.junior.components.DatabaseInitializer;
 import hr.abysalto.hiring.api.junior.data.model.Buyer;
-import hr.abysalto.hiring.api.junior.manager.BuyerManager;
+import hr.abysalto.hiring.api.junior.service.BuyerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 public class BuyerController {
 
 	@Autowired
-	private BuyerManager buyerManager;
+	private BuyerService buyerService;
 	@Autowired
 	private DatabaseInitializer databaseInitializer;
 
@@ -36,12 +36,12 @@ public class BuyerController {
 			@ApiResponse(description = "Precondition failed", responseCode = "412", content = @Content(mediaType = "text/plain", schema = @Schema(implementation = String.class))),
 			@ApiResponse(description = "Error", responseCode = "500", content = @Content(mediaType = "application/json")) })
 	@GetMapping("/list")
-	public ResponseEntity list() {
+	public ResponseEntity<?> list() {
 		if (!this.databaseInitializer.isDataInitialized()) {
 			return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).contentType(MediaType.TEXT_PLAIN).body("Data not initialized");
 		}
 		try {
-			return ResponseEntity.ok(this.buyerManager.getAllBuyers());
+			return ResponseEntity.ok(this.buyerService.getAllBuyers());
 		} catch (Exception ex) {
 			return ResponseEntity.internalServerError().body(ex);
 		}
@@ -49,7 +49,7 @@ public class BuyerController {
 
 	@GetMapping("/")
 	public String viewHomePage(Model model) {
-		model.addAttribute("buyerList", this.buyerManager.getAllBuyers());
+		model.addAttribute("buyerList", this.buyerService.getAllBuyers());
 		return "buyer/index";
 	}
 
@@ -61,21 +61,21 @@ public class BuyerController {
 	}
 
 	@PostMapping("/save")
-	public String sabeBuyer(@ModelAttribute("buyer") Buyer buyer) {
-		this.buyerManager.save(buyer);
+	public String saveBuyer(@ModelAttribute("buyer") Buyer buyer) {
+		this.buyerService.save(buyer);
 		return "redirect:/buyer/";
 	}
 
 	@GetMapping("/showFormForUpdate/{id}")
 	public String updateForm(@PathVariable(value = "id") long id, Model model) {
-		Buyer buyer = this.buyerManager.getById(id);
+		Buyer buyer = this.buyerService.getById(id);
 		model.addAttribute("buyer", buyer);
 		return "buyer/updatebuyer";
 	}
 
 	@GetMapping("/deleteBuyer/{id}")
 	public String deleteById(@PathVariable(value = "id") long id) {
-		this.buyerManager.deleteById(id);
+		this.buyerService.deleteById(id);
 		return "redirect:/buyer/";
 	}
 
