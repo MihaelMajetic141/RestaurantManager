@@ -13,7 +13,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderItemRequest {
-	@NotNull(message = "Order ID is required")
 	private Long orderId;
 
 	@NotNull(message = "Item ID is required")
