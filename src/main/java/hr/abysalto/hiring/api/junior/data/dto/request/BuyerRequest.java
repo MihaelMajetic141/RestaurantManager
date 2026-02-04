@@ -1,4 +1,6 @@
-package hr.abysalto.hiring.api.junior.data.dto;
+package hr.abysalto.hiring.api.junior.data.dto.request;
+
+import java.util.List;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -20,4 +22,6 @@ public class BuyerRequest {
 
 	@Size(max = 100)
 	private String title;
+
+	private List<Long> addressIds;
 }

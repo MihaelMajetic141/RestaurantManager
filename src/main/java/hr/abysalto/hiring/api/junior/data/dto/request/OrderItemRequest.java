@@ -1,4 +1,4 @@
-package hr.abysalto.hiring.api.junior.data.dto;
+package hr.abysalto.hiring.api.junior.data.dto.request;
 
 
 import jakarta.validation.constraints.NotNull;

@@ -1,4 +1,4 @@
-package hr.abysalto.hiring.api.junior.data.dto;
+package hr.abysalto.hiring.api.junior.data.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

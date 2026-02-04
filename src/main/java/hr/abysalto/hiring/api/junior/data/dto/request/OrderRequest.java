@@ -1,10 +1,9 @@
-package hr.abysalto.hiring.api.junior.data.dto;
+package hr.abysalto.hiring.api.junior.data.dto.request;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -16,8 +15,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderRequest {
-	@NotBlank(message = "Buyer name is required")
-	private String buyerName;
+	@NotNull(message = "Buyer id is required")
+	private Long buyerId;
 
 	@NotBlank(message = "Order status is required")
 	@Size(max = 32)
