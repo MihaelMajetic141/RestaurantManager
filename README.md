@@ -27,8 +27,8 @@ Comes with H2 database and Docker Compose setup for one‐command startup.
 
 1. **Clone the repo**  
    ```bash
-   git clone https://github.com/MihaelMajetic141/RestaurantManagerAbysalto
-   cd RestaurantManagerAbysalto
+   git clone https://github.com/MihaelMajetic141/RestaurantManager
+   cd RestaurantManager
    ```
 
 2. **Build & run**
@@ -41,7 +41,12 @@ Comes with H2 database and Docker Compose setup for one‐command startup.
 
     * Service: `http://localhost:8080`
     * Swagger OpenAPI:  `http://localhost:8080/swagger-ui/index.html#/`
-   
+
+4. **Swagger documentation tips:**
+
+   * Use /init-data endpoint for database initialization, then register as a new user and login on /api/auth/login endpoint.
+   * Copy accessToken from request body and paste it on any lock icon to save Bearer JWT token.
+   * Proceed to test API endpoints.
 
 4. **Reset & rebuild** (fresh DB)
 
