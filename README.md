@@ -1,4 +1,4 @@
-# REST API for a restaurant orders
+# REST API Spring Boot Application for Restaurant Management
 
 A Spring Boot application that enables CRUD endpoints for restaurant management, includes Spring Security JWT authentication, Swagger/OpenAPI docs, JUnit and Integration tests.
 Comes with H2 database and Docker Compose setup for one‐command startup.
