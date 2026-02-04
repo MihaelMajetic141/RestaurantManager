@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import hr.abysalto.hiring.api.junior.components.PatchUtils;
 import hr.abysalto.hiring.api.junior.components.mapper.BuyerMapper;
-import hr.abysalto.hiring.api.junior.data.dto.BuyerRequest;
+import hr.abysalto.hiring.api.junior.data.dto.request.BuyerRequest;
 import hr.abysalto.hiring.api.junior.data.model.Buyer;
 import hr.abysalto.hiring.api.junior.service.BuyerService;
 import jakarta.validation.Valid;
@@ -69,7 +69,7 @@ public class BuyerController {
 		BuyerRequest buyerPatch = objectMapper.treeToValue(merged, BuyerRequest.class);
 		validator.validate(buyerPatch);
 
-		Buyer savedBuyer = buyerService.patchBuyer(id, buyerPatch);
+		Buyer savedBuyer = buyerService.patchBuyer(id, buyerPatch, patchNode);
 		return ResponseEntity.ok(BuyerMapper.toBuyerResponse(savedBuyer));
 	}
 

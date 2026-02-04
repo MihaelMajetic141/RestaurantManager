@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import hr.abysalto.hiring.api.junior.components.PatchUtils;
 import hr.abysalto.hiring.api.junior.components.mapper.ItemMapper;
-import hr.abysalto.hiring.api.junior.data.dto.ItemRequest;
+import hr.abysalto.hiring.api.junior.data.dto.request.ItemRequest;
 import hr.abysalto.hiring.api.junior.data.model.Item;
 import hr.abysalto.hiring.api.junior.service.ItemService;
 import jakarta.validation.Valid;
@@ -73,7 +73,7 @@ public class ItemController {
 		ItemRequest itemPatch = objectMapper.treeToValue(merged, ItemRequest.class);
 		validator.validate(itemPatch);
 
-		Item savedItem = itemService.patchItem(id, itemPatch);
+		Item savedItem = itemService.patchItem(id, itemPatch, patchNode);
 		return ResponseEntity.ok(ItemMapper.toItemResponse(savedItem));
 	}
 

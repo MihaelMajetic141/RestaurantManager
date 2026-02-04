@@ -22,7 +22,7 @@ public class InitDataController {
 			@ApiResponse(description = "Success", responseCode = "204"),
 			@ApiResponse(description = "Error", responseCode = "500", content = @Content(mediaType = "application/json"))})
 	@PostMapping("/")
-	public ResponseEntity init() {
+	public ResponseEntity<?> init() {
 		try {
 			this.databaseInitializer.initialize();
 			return ResponseEntity.noContent().build();

@@ -3,7 +3,7 @@ package hr.abysalto.hiring.api.junior.controller;
 
 import hr.abysalto.hiring.api.junior.components.PatchUtils;
 import hr.abysalto.hiring.api.junior.components.mapper.OrderMapper;
-import hr.abysalto.hiring.api.junior.data.dto.OrderRequest;
+import hr.abysalto.hiring.api.junior.data.dto.request.OrderRequest;
 import hr.abysalto.hiring.api.junior.data.model.Order;
 import hr.abysalto.hiring.api.junior.service.OrderService;
 import jakarta.validation.Valid;
@@ -39,6 +39,7 @@ public class OrderController {
         @RequestParam(required = false) String paymentOption,
         @RequestParam(required = false) String currency,
         @PageableDefault(
+            size = 20,
             sort = "orderTime",
             direction = Sort.Direction.DESC
         ) Pageable pageable
@@ -58,14 +59,12 @@ public class OrderController {
         @Valid @RequestBody OrderRequest order
     ) {
         Order newOrder = orderService.createOrder(order);
-        // messagingTemplate.convertAndSend("/topic/orders", newOrder);
         return ResponseEntity.status(HttpStatus.CREATED).body(newOrder);
     }
 
     @PutMapping("/update/{id}")
     public ResponseEntity<?> updateOrder(@PathVariable Long id, @Valid @RequestBody OrderRequest order) {
         Order updatedOrder = orderService.updateOrder(id, order);
-        // messagingTemplate.convertAndSend("/topic/orders", updatedOrder);
         return ResponseEntity.ok(OrderMapper.toOrderResponse(updatedOrder));
     }
 
@@ -75,21 +74,20 @@ public class OrderController {
             @RequestBody JsonNode patchNode
     ) throws JsonProcessingException, IllegalArgumentException {
         Order existingOrder = orderService.getOrderById(id);
+        OrderRequest existingRequest = OrderMapper.toOrderRequest(existingOrder);
 
-        JsonNode existingNode = objectMapper.valueToTree(existingOrder);
+        JsonNode existingNode = objectMapper.valueToTree(existingRequest);
         JsonNode merged = patchUtils.merge(existingNode, patchNode);
         OrderRequest orderPatch = objectMapper.treeToValue(merged, OrderRequest.class);
         validator.validate(orderPatch);
 
-        Order savedOrder = orderService.patchOrder(id, orderPatch);
-        // messagingTemplate.convertAndSend("/topic/orders", savedOrder);
+        Order savedOrder = orderService.patchOrder(id, orderPatch, patchNode);
         return ResponseEntity.ok(OrderMapper.toOrderResponse(savedOrder));
     }
 
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<?> deleteOrder(@PathVariable Long id) {
         orderService.deleteOrder(id);
-        // messagingTemplate.convertAndSend("/topic/orders", id);
         return ResponseEntity.noContent().build();
     }
 }
