@@ -1,8 +1,10 @@
 package hr.abysalto.hiring.api.junior.data.dto;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -43,4 +45,6 @@ public class OrderRequest {
 
 	@Size(max = 50)
 	private String currency;
+
+	private BigDecimal totalPrice;
 }
