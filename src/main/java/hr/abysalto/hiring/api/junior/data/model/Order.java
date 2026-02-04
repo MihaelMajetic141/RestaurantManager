@@ -2,7 +2,7 @@ package hr.abysalto.hiring.api.junior.data.model;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Set;
 
 import lombok.Data;
 import lombok.Builder;
@@ -30,7 +30,10 @@ public class Order {
 	@Id
 	private Long id;
 
-	@MappedCollection(idColumn = "BUYER_ID")
+	@Column("BUYER_ID")
+	private Long buyerId;
+
+	@Transient
 	private Buyer buyer;
 
 	@Transient
@@ -60,7 +63,10 @@ public class Order {
 		this.paymentOption = PaymentOption.fromString(paymentOptionString);
 	}
 
-	@MappedCollection(idColumn = "DELIVERY_ADDRESS_ID")
+	@Column("DELIVERY_ADDRESS_ID")
+	private Long deliveryAddressId;
+
+	@Transient
 	private BuyerAddress deliveryAddress;
 
 	@Column("CONTACT_NUMBER")
@@ -70,7 +76,7 @@ public class Order {
 	private String orderNote;
 
 	@MappedCollection(idColumn = "ORDER_ID")
-	private List<OrderItem> orderItems;
+	private Set<OrderItem> orderItems;
 
 	@Column("TOTAL_PRICE")
 	private BigDecimal totalPrice;
@@ -78,6 +84,13 @@ public class Order {
 	@Column("CURRENCY")
 	private String currency;
 
-	@Version
-    private Long version;
+	public void setBuyer(Buyer buyer) {
+		this.buyer = buyer;
+		this.buyerId = buyer != null ? buyer.getId() : null;
+	}
+
+	public void setDeliveryAddress(BuyerAddress deliveryAddress) {
+		this.deliveryAddress = deliveryAddress;
+		this.deliveryAddressId = deliveryAddress != null ? deliveryAddress.getId() : null;
+	}
 }
