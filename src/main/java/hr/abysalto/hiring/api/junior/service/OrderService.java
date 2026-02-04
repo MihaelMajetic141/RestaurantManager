@@ -3,10 +3,10 @@ package hr.abysalto.hiring.api.junior.service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
-import org.springframework.dao.OptimisticLockingFailureException;
+import com.fasterxml.jackson.databind.JsonNode;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -15,9 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import hr.abysalto.hiring.api.junior.data.dto.AddressRequest;
-import hr.abysalto.hiring.api.junior.data.dto.OrderItemRequest;
-import hr.abysalto.hiring.api.junior.data.dto.OrderRequest;
+import hr.abysalto.hiring.api.junior.data.dto.request.AddressRequest;
+import hr.abysalto.hiring.api.junior.data.dto.request.OrderItemRequest;
+import hr.abysalto.hiring.api.junior.data.dto.request.OrderRequest;
 import hr.abysalto.hiring.api.junior.data.enums.OrderStatus;
 import hr.abysalto.hiring.api.junior.data.enums.PaymentOption;
 import hr.abysalto.hiring.api.junior.data.model.Buyer;
@@ -45,6 +45,7 @@ public class OrderService {
 	public Page<Order> getAllOrders(String orderStatus, String paymentOption, String currency, Pageable pageable) {
 		List<Order> allOrders = new ArrayList<>();
 		orderRepository.findAll().forEach(allOrders::add);
+		populateOrderBuyerAndAddress(allOrders);
 
 		var stream = allOrders.stream();
 		if (orderStatus != null && !orderStatus.isBlank()) {
@@ -71,138 +72,142 @@ public class OrderService {
 		if (id == null) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order ID is required");
 		}
-		return orderRepository.findById(id)
+		Order order = orderRepository.findById(id)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found for id = " + id));
+		populateOrderBuyerAndAddress(List.of(order));
+		return order;
 	}
 
 	@Transactional
 	public Order createOrder(OrderRequest request) {
-		Buyer buyer = getBuyerByFullName(request.getBuyerName());
-		BuyerAddress deliveryAddress = resolveDeliveryAddress(buyer.getId(), request.getDeliveryAddress());
-		buyer.getAddresses().add(deliveryAddress);
-		buyerRepository.save(buyer);
+		Buyer buyer = buyerRepository.findById(request.getBuyerId())
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND, "Buyer not found for id = " + request.getBuyerId()));
+		BuyerAddress deliveryAddress = saveBuyerDeliveryAddress(buyer.getId(), request.getDeliveryAddress());
 
 		Order order = Order.builder()
-				.buyer(buyer)
 				.orderStatus(OrderStatus.valueOf(request.getOrderStatus()))
-				.orderTime(LocalDateTime.parse(request.getOrderTime(), DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")))
+				.orderTime(LocalDateTime.parse(
+                    request.getOrderTime(), DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")))
 				.paymentOption(PaymentOption.valueOf(request.getPaymentOption()))
-				.deliveryAddress(deliveryAddress)
 				.contactNumber(request.getContactNumber())
 				.orderNote(request.getOrderNote())
 				.currency(request.getCurrency())
-				.orderItems(List.of())
+				.orderItems(Set.of())
 				.totalPrice(BigDecimal.ZERO)
 				.build();
+		order.setBuyer(buyer);
+		order.setDeliveryAddress(deliveryAddress);
 
+		order = orderRepository.save(order);
 		List<OrderItem> orderItems = createOrderItemsFromRequest(order.getId(), request.getOrderItems());
 		BigDecimal totalPrice = calculateTotalPrice(orderItems);
-		order.setOrderItems(orderItems);
+		order.setOrderItems(new HashSet<>(orderItems));
 		order.setTotalPrice(totalPrice);
+		order.setBuyer(buyer);
+		order.setDeliveryAddress(deliveryAddress);
 
 		return orderRepository.save(order);
 	}
 
-	public Order updateOrderStatus(Long id, OrderStatus status) {
-		Order order = orderRepository.findById(id)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found for id = " + id));
-		order.setOrderStatus(status);
-		try {
-			return orderRepository.save(order);
-		} catch (OptimisticLockingFailureException ex) {
-			throw new ResponseStatusException(HttpStatus.CONFLICT, "Order was updated concurrently");
-		}
-	}
-
 	@Transactional
 	public Order updateOrder(Long id, OrderRequest request) {
-		Order order = orderRepository.findById(id)
+		Order existingOrder = orderRepository.findById(id)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found for id = " + id));
 
-		Buyer buyer = getBuyerByFullName(request.getBuyerName());
-		BuyerAddress deliveryAddress = resolveDeliveryAddress(buyer.getId(), request.getDeliveryAddress());
-		buyer.getAddresses().add(deliveryAddress);
-		buyerRepository.save(buyer);
+        BuyerAddress deliveryAddress = saveBuyerDeliveryAddress(request.getBuyerId(), request.getDeliveryAddress());
 
-		order.setBuyer(buyer);
-		order.setOrderStatus(OrderStatus.valueOf(request.getOrderStatus()));
-		order.setOrderTime(LocalDateTime.parse(request.getOrderTime(), DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
-		order.setPaymentOption(PaymentOption.valueOf(request.getPaymentOption()));
-		order.setDeliveryAddress(deliveryAddress);
-		order.setContactNumber(request.getContactNumber());
-		order.setOrderNote(request.getOrderNote());
-		order.setCurrency(request.getCurrency());
+        List<OrderItem> orderItems = createOrderItemsFromRequest(id, request.getOrderItems());
 
-		orderItemRepository.findByOrderId(id).forEach(orderItemRepository::delete);
+        orderItemRepository.findByOrderId(id).forEach(orderItemRepository::delete);
+        orderItems.forEach(orderItemRepository::save);
 
-		List<OrderItem> orderItems = createOrderItemsFromRequest(id, request.getOrderItems());
+        Buyer buyer = buyerRepository.findById(request.getBuyerId())
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND, "No buyer found for ID:" + request.getBuyerId()));
+
+        existingOrder.setBuyer(buyer);
+		existingOrder.setOrderStatus(OrderStatus.valueOf(request.getOrderStatus()));
+		existingOrder.setOrderTime(LocalDateTime.parse(request.getOrderTime(), DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
+		existingOrder.setPaymentOption(PaymentOption.valueOf(request.getPaymentOption()));
+		existingOrder.setDeliveryAddress(deliveryAddress);
+		existingOrder.setContactNumber(request.getContactNumber());
+		existingOrder.setOrderNote(request.getOrderNote());
+		existingOrder.setCurrency(request.getCurrency());
+
 		BigDecimal totalPrice = calculateTotalPrice(orderItems);
-		orderItems.forEach(orderItemRepository::save);
-		order.setOrderItems(orderItems);
-		order.setTotalPrice(totalPrice);
-
-		try {
-			return orderRepository.save(order);
-		} catch (OptimisticLockingFailureException ex) {
-			throw new ResponseStatusException(HttpStatus.CONFLICT, "Order was updated concurrently");
-		}
+		existingOrder.setOrderItems(new HashSet<>(orderItems));
+		existingOrder.setTotalPrice(totalPrice);
+		Order saved = orderRepository.save(existingOrder);
+		populateOrderBuyerAndAddress(List.of(saved));
+		return saved;
 	}
 
 	@Transactional
-	public Order patchOrder(Long id, OrderRequest request) {
+	public Order patchOrder(Long id, OrderRequest request, JsonNode patchNode) {
 		Order existingOrder = orderRepository.findById(id)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found with ID: " + id));
 
-		if (request.getBuyerName() != null) {
-			existingOrder.setBuyer(getBuyerByFullName(request.getBuyerName()));
+		if (patchNode.has("buyerId") && request.getBuyerId() != null) {
+            Buyer existingBuyer = buyerRepository.findById(request.getBuyerId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Buyer not found for ID: " + request.getBuyerId()));
+			existingOrder.setBuyer(existingBuyer);
 		}
-		if (request.getOrderStatus() != null) {
+		if (patchNode.has("orderStatus") && request.getOrderStatus() != null) {
 			existingOrder.setOrderStatus(OrderStatus.valueOf(request.getOrderStatus()));
 		}
-		if (request.getOrderTime() != null) {
+		if (patchNode.has("orderTime") && request.getOrderTime() != null) {
 			existingOrder.setOrderTime(LocalDateTime.parse(
-					request.getOrderTime(), DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
+					request.getOrderTime(), DateTimeFormatter.ISO_LOCAL_DATE_TIME));
 		}
-		if (request.getPaymentOption() != null) {
+		if (patchNode.has("paymentOption") && request.getPaymentOption() != null) {
 			existingOrder.setPaymentOption(PaymentOption.valueOf(request.getPaymentOption()));
 		}
-		if (request.getDeliveryAddress() != null) {
-			BuyerAddress deliveryAddress = resolveDeliveryAddress(
+		if (patchNode.has("deliveryAddress") && request.getDeliveryAddress() != null) {
+			BuyerAddress deliveryAddress = saveBuyerDeliveryAddress(
 					existingOrder.getBuyer().getId(), request.getDeliveryAddress());
-			existingOrder.setDeliveryAddress(deliveryAddress);
-			existingOrder.getBuyer().getAddresses().add(deliveryAddress);
-			buyerRepository.save(existingOrder.getBuyer());
+            existingOrder.setDeliveryAddress(deliveryAddress);
 		}
-		if (request.getContactNumber() != null) {
+		if (patchNode.has("contactNumber")) {
 			existingOrder.setContactNumber(request.getContactNumber());
 		}
-		if (request.getOrderNote() != null) {
+		if (patchNode.has("orderNote")) {
 			existingOrder.setOrderNote(request.getOrderNote());
 		}
-		if (request.getCurrency() != null) {
+		if (patchNode.has("currency")) {
 			existingOrder.setCurrency(request.getCurrency());
 		}
-		if (request.getOrderItems() != null) {
-			existingOrder.setOrderItems(createOrderItemsFromRequest(id, request.getOrderItems()));
+		if (patchNode.has("orderItems") && request.getOrderItems() != null) {
+            List<OrderItem> orderItems = createOrderItemsFromRequest(id, request.getOrderItems());
+            orderItems.forEach(orderItemRepository::save);
+            existingOrder.setOrderItems(new HashSet<>(orderItems));
 		}
-		BigDecimal totalPrice = calculateTotalPrice(existingOrder.getOrderItems());
-		existingOrder.setTotalPrice(totalPrice);
+		if (patchNode.has("totalPrice")) {
+			JsonNode totalNode = patchNode.get("totalPrice");
+			if (totalNode != null && !totalNode.isNull()) {
+				BigDecimal value = totalNode.isNumber()
+						? totalNode.decimalValue()
+						: new BigDecimal(totalNode.asText());
+				existingOrder.setTotalPrice(value);
+			}
+		} else if (patchNode.has("orderItems")) {
+			existingOrder.setTotalPrice(calculateTotalPrice(existingOrder.getOrderItems()));
+		}
 
-		try {
-			return orderRepository.save(existingOrder);
-		} catch (OptimisticLockingFailureException ex) {
-			throw new ResponseStatusException(HttpStatus.CONFLICT, "Order was updated concurrently");
-		}
+		Order saved = orderRepository.save(existingOrder);
+		populateOrderBuyerAndAddress(List.of(saved));
+		return saved;
 	}
 
 	public void deleteOrder(Long id) {
 		Order order = orderRepository.findById(id)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found for id = " + id));
+		populateOrderBuyerAndAddress(List.of(order));
 		orderItemRepository.deleteAll(order.getOrderItems());
 		orderRepository.deleteById(id);
 	}
 
-	public BigDecimal calculateTotalPrice(List<OrderItem> items) {
+	public BigDecimal calculateTotalPrice(Collection<OrderItem> items) {
 		if (items == null || items.isEmpty()) {
 			return BigDecimal.ZERO;
 		}
@@ -213,38 +218,55 @@ public class OrderService {
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 
-	private Buyer getBuyerByFullName(String buyerName) {
-		if (buyerName == null || buyerName.isBlank()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Buyer name is required");
-		}
-		String[] parts = buyerName.trim().split("\\s+", 2);
-		String firstName = parts[0];
-		String lastName = parts.length > 1 ? parts[1] : "";
-		List<Buyer> buyers = buyerRepository.findByFirstNameAndLastName(firstName, lastName);
-		if (buyers.isEmpty()) {
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Buyer not found: " + buyerName);
-		}
-		return buyers.get(0);
-	}
+	private BuyerAddress saveBuyerDeliveryAddress(Long buyerId, AddressRequest shippingAddress) {
+        Buyer buyer = buyerRepository.findById(buyerId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No buyer found for ID:" + buyerId));
 
-	private BuyerAddress resolveDeliveryAddress(Long buyerId, AddressRequest shippingAddress) {
-		BuyerAddress address = new BuyerAddress();
-		address.setBuyerId(buyerId);
-		address.setStreet(shippingAddress.getStreet());
-		address.setCity(shippingAddress.getCity());
-		address.setHomeNumber(shippingAddress.getHomeNumber());
-		return buyerAddressRepository.save(address);
+        BuyerAddress existing = null;
+        if (buyer.getAddresses() != null) {
+            for (BuyerAddress a : buyer.getAddresses()) {
+                if (shippingAddress.getCity().equals(a.getCity())
+                    && shippingAddress.getStreet().equals(a.getStreet())
+                    && (shippingAddress.getHomeNumber() == null ? a.getHomeNumber() == null
+                        : shippingAddress.getHomeNumber().equals(a.getHomeNumber()))) {
+                    existing = a;
+                    break;
+                }
+            }
+        }
+        if (existing != null) {
+            return existing;
+        }
+        BuyerAddress buyerAddress = BuyerAddress.builder()
+            .buyerId(buyerId)
+            .city(shippingAddress.getCity())
+            .street(shippingAddress.getStreet())
+            .homeNumber(shippingAddress.getHomeNumber())
+            .build();
+        return buyerAddressRepository.save(buyerAddress);
+    }
+
+	private void populateOrderBuyerAndAddress(List<Order> orders) {
+        orders.forEach(order -> {
+            if (order.getBuyerId() != null)
+                order.setBuyer(buyerRepository.findById(order.getBuyerId()).orElse(null));
+            if (order.getDeliveryAddressId() != null)
+                order.setDeliveryAddress(
+                    buyerAddressRepository.findById(order.getDeliveryAddressId()).orElse(null));
+        });
 	}
 
 	private List<OrderItem> createOrderItemsFromRequest(Long orderId, List<OrderItemRequest> itemRequests) {
-		if (itemRequests == null || itemRequests.isEmpty()) {
+        if (orderRepository.findById(orderId).isEmpty())
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found for id = " + orderId);
+		if (itemRequests == null || itemRequests.isEmpty())
 			return List.of();
-		}
 		List<OrderItem> orderItems = new ArrayList<>();
 		for (OrderItemRequest req : itemRequests) {
 			Item item = itemRepository.findById(req.getItemId()).stream()
 					.findFirst()
-					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found for id = " + req.getItemId()));
+					.orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Item not found for id = " + req.getItemId()));
 			OrderItem orderItem = new OrderItem();
 			orderItem.setItemId(item.getId());
 			orderItem.setOrderId(orderId);

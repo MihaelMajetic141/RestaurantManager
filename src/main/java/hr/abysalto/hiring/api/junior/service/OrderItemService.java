@@ -3,14 +3,17 @@ package hr.abysalto.hiring.api.junior.service;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import hr.abysalto.hiring.api.junior.data.dto.OrderItemRequest;
+import hr.abysalto.hiring.api.junior.data.dto.request.OrderItemRequest;
 import hr.abysalto.hiring.api.junior.data.model.Item;
 import hr.abysalto.hiring.api.junior.data.model.OrderItem;
 import hr.abysalto.hiring.api.junior.repository.ItemRepository;
@@ -51,64 +54,71 @@ public class OrderItemService {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order item ID is required");
 		}
 		return orderItemRepository.findById(id)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order item not found for id = " + id));
+				.orElseThrow(
+						() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order item not found for id = " + id));
 	}
 
+	@Transactional
 	public OrderItem createOrderItem(OrderItemRequest request) {
+		validateOrderExists(request.getOrderId());
+		Item item = itemRepository.findById(request.getItemId())
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND, "Item not found for id = " + request.getItemId()));
+
+		if (request.getQuantity() == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantity is required");
+		}
+		OrderItem orderItem = new OrderItem();
+		orderItem.setOrderId(request.getOrderId());
+		orderItem.setItemId(request.getItemId());
+		orderItem.setQuantity(request.getQuantity());
+		orderItem.setSnapshotPrice(item.getPrice());
+		return orderItemRepository.save(orderItem);
+	}
+
+	public OrderItem updateOrderItem(Long id, OrderItemRequest request) {
+		OrderItem orderItem = orderItemRepository.findById(id)
+				.orElseThrow(
+						() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order item not found for id = " + id));
 		validateOrderExists(request.getOrderId());
 		Item item = validateItemExists(request.getItemId());
 		if (request.getQuantity() == null) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantity is required");
 		}
 
-		OrderItem orderItem = new OrderItem();
 		orderItem.setOrderId(request.getOrderId());
 		orderItem.setItemId(request.getItemId());
 		orderItem.setQuantity(request.getQuantity());
-		orderItem.setSnapshotPrice(request.getSnapshotPrice() != null ? request.getSnapshotPrice() : item.getPrice());
+		orderItem.setSnapshotPrice(item.getPrice());
 		return orderItemRepository.save(orderItem);
 	}
 
-	public OrderItem updateOrderItem(Long id, OrderItemRequest request) {
+	@Transactional
+	public OrderItem patchOrderItem(Long id, OrderItemRequest request, JsonNode patchNode) {
 		OrderItem orderItem = orderItemRepository.findById(id)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order item not found for id = " + id));
-		validateOrderExists(request.getOrderId());
-		validateItemExists(request.getItemId());
-		if (request.getQuantity() == null) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantity is required");
-		}
+				.orElseThrow(
+						() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order item not found with ID: " + id));
 
-		orderItem.setOrderId(request.getOrderId());
-		orderItem.setItemId(request.getItemId());
-		orderItem.setQuantity(request.getQuantity());
-		orderItem.setSnapshotPrice(request.getSnapshotPrice());
-		return orderItemRepository.save(orderItem);
-	}
-
-	public OrderItem patchOrderItem(Long id, OrderItemRequest request) {
-		OrderItem orderItem = orderItemRepository.findById(id)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order item not found for id = " + id));
-		if (request.getOrderId() != null) {
+		if (patchNode.has("orderId") && request.getOrderId() != null) {
 			validateOrderExists(request.getOrderId());
 			orderItem.setOrderId(request.getOrderId());
 		}
-		if (request.getItemId() != null) {
-			validateItemExists(request.getItemId());
+		if (patchNode.has("itemId") && request.getItemId() != null) {
+			Item item = validateItemExists(request.getItemId());
 			orderItem.setItemId(request.getItemId());
+			if (item.getPrice() != null) {
+				orderItem.setSnapshotPrice(item.getPrice());
+			}
 		}
-		if (request.getQuantity() != null) {
+		if (patchNode.has("quantity") && request.getQuantity() != null) {
 			orderItem.setQuantity(request.getQuantity());
-		}
-		if (request.getSnapshotPrice() != null) {
-			orderItem.setSnapshotPrice(request.getSnapshotPrice());
 		}
 		return orderItemRepository.save(orderItem);
 	}
 
 	public void deleteOrderItem(Long id) {
-		if (orderItemRepository.findById(id).isEmpty()) {
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order item not found for id = " + id);
-		}
+		orderItemRepository.findById(id)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order item not found for id = " + id));
 		orderItemRepository.deleteById(id);
 	}
 
@@ -126,6 +136,7 @@ public class OrderItemService {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Item ID is required");
 		}
 		return itemRepository.findById(itemId)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found for id = " + itemId));
+				.orElseThrow(
+						() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found for id = " + itemId));
 	}
 }

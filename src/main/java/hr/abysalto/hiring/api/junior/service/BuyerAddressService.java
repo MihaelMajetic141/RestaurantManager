@@ -1,16 +1,21 @@
 package hr.abysalto.hiring.api.junior.service;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+
+import com.fasterxml.jackson.databind.JsonNode;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import hr.abysalto.hiring.api.junior.data.dto.BuyerAddressRequest;
+import hr.abysalto.hiring.api.junior.data.dto.request.BuyerAddressRequest;
+import hr.abysalto.hiring.api.junior.data.model.Buyer;
 import hr.abysalto.hiring.api.junior.data.model.BuyerAddress;
 import hr.abysalto.hiring.api.junior.repository.BuyerAddressRepository;
 import hr.abysalto.hiring.api.junior.repository.BuyerRepository;
@@ -20,8 +25,8 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class BuyerAddressService {
 
-	private BuyerAddressRepository buyerAddressRepository;
-	private BuyerRepository buyerRepository;
+	private final BuyerAddressRepository buyerAddressRepository;
+	private final BuyerRepository buyerRepository;
 
 	public Page<BuyerAddress> getAllBuyerAddresses(Long buyerId, String city, String street, Pageable pageable) {
 		List<BuyerAddress> all = new ArrayList<>();
@@ -54,6 +59,7 @@ public class BuyerAddressService {
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Buyer address not found for id = " + id));
 	}
 
+	@Transactional
 	public BuyerAddress createBuyerAddress(BuyerAddressRequest request) {
 		validateBuyerExists(request.getBuyerId());
 		BuyerAddress address = new BuyerAddress();
@@ -61,9 +67,12 @@ public class BuyerAddressService {
 		address.setCity(request.getCity());
 		address.setStreet(request.getStreet());
 		address.setHomeNumber(request.getHomeNumber());
-		return buyerAddressRepository.save(address);
+		address = buyerAddressRepository.save(address);
+		addAddressToBuyerAndSave(request.getBuyerId(), address);
+		return address;
 	}
 
+	@Transactional
 	public BuyerAddress updateBuyerAddress(Long id, BuyerAddressRequest request) {
 		BuyerAddress address = buyerAddressRepository.findById(id)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Buyer address not found for id = " + id));
@@ -72,32 +81,36 @@ public class BuyerAddressService {
 		address.setCity(request.getCity());
 		address.setStreet(request.getStreet());
 		address.setHomeNumber(request.getHomeNumber());
-		return buyerAddressRepository.save(address);
+		address = buyerAddressRepository.save(address);
+		addAddressToBuyerAndSave(request.getBuyerId(), address);
+		return address;
 	}
 
-	public BuyerAddress patchBuyerAddress(Long id, BuyerAddressRequest request) {
+	@Transactional
+	public BuyerAddress patchBuyerAddress(Long id, BuyerAddressRequest request, JsonNode patchNode) {
 		BuyerAddress address = buyerAddressRepository.findById(id)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Buyer address not found for id = " + id));
-		if (request.getBuyerId() != null) {
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Buyer address not found with ID: " + id));
+		if (patchNode.has("buyerId") && request.getBuyerId() != null) {
 			validateBuyerExists(request.getBuyerId());
 			address.setBuyerId(request.getBuyerId());
 		}
-		if (request.getCity() != null) {
+		if (patchNode.has("city")) {
 			address.setCity(request.getCity());
 		}
-		if (request.getStreet() != null) {
+		if (patchNode.has("street")) {
 			address.setStreet(request.getStreet());
 		}
-		if (request.getHomeNumber() != null) {
+		if (patchNode.has("homeNumber")) {
 			address.setHomeNumber(request.getHomeNumber());
 		}
-		return buyerAddressRepository.save(address);
+		address = buyerAddressRepository.save(address);
+		addAddressToBuyerAndSave(address.getBuyerId(), address);
+		return address;
 	}
 
 	public void deleteBuyerAddress(Long id) {
-		if (buyerAddressRepository.findById(id).isEmpty()) {
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Buyer address not found for id = " + id);
-		}
+		buyerAddressRepository.findById(id)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Buyer address not found for id = " + id));
 		buyerAddressRepository.deleteById(id);
 	}
 
@@ -107,6 +120,21 @@ public class BuyerAddressService {
 		}
 		if (buyerRepository.findById(buyerId).isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Buyer not found for id = " + buyerId);
+		}
+	}
+
+	private void addAddressToBuyerAndSave(Long buyerId, BuyerAddress address) {
+		if (buyerId == null) {
+			return;
+		}
+		Buyer buyer = buyerRepository.findById(buyerId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Buyer not found for id = " + buyerId));
+		if (buyer.getAddresses() == null) {
+			buyer.setAddresses(new HashSet<>());
+		}
+		if (buyer.getAddresses().stream().noneMatch(a -> address.getId() != null && address.getId().equals(a.getId()))) {
+			buyer.getAddresses().add(address);
+			buyerRepository.save(buyer);
 		}
 	}
 }

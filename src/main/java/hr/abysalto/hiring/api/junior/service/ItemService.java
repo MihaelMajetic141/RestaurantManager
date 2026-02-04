@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -11,7 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import hr.abysalto.hiring.api.junior.data.dto.ItemRequest;
+import hr.abysalto.hiring.api.junior.data.dto.request.ItemRequest;
 import hr.abysalto.hiring.api.junior.data.model.Item;
 import hr.abysalto.hiring.api.junior.repository.ItemRepository;
 import lombok.AllArgsConstructor;
@@ -28,7 +30,7 @@ public class ItemService {
 
 		var stream = all.stream();
 		if (name != null && !name.isBlank()) {
-			stream = stream.filter(i -> name.toLowerCase().contains(i.getName().toLowerCase()));
+			stream = stream.filter(i -> i.getName() != null && i.getName().toLowerCase().contains(name.toLowerCase()));
 		}
 		if (itemNumber != null) {
 			stream = stream.filter(i -> itemNumber.equals(i.getItemNumber()));
@@ -73,25 +75,24 @@ public class ItemService {
 		return itemRepository.save(item);
 	}
 
-	public Item patchItem(Long id, ItemRequest request) {
+	public Item patchItem(Long id, ItemRequest request, JsonNode patchNode) {
 		Item item = itemRepository.findById(id)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found for id = " + id));
-		if (request.getItemNumber() != null) {
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found with ID: " + id));
+		if (patchNode.has("itemNumber")) {
 			item.setItemNumber(request.getItemNumber());
 		}
-		if (request.getName() != null) {
+		if (patchNode.has("name")) {
 			item.setName(request.getName());
 		}
-		if (request.getPrice() != null) {
+		if (patchNode.has("price")) {
 			item.setPrice(request.getPrice());
 		}
 		return itemRepository.save(item);
 	}
 
 	public void deleteItem(Long id) {
-		if (itemRepository.findById(id).isEmpty()) {
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found for id = " + id);
-		}
+		itemRepository.findById(id)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found for id = " + id));
 		itemRepository.deleteById(id);
 	}
 }
