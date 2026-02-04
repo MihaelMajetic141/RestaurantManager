@@ -2,7 +2,7 @@ package hr.abysalto.hiring.api.junior.components.mapper;
 
 import org.springframework.stereotype.Component;
 
-import hr.abysalto.hiring.api.junior.data.dto.BuyerResponse;
+import hr.abysalto.hiring.api.junior.data.dto.response.BuyerResponse;
 import hr.abysalto.hiring.api.junior.data.model.Buyer;
 
 @Component
